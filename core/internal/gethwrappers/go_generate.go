@@ -12,6 +12,9 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json solidity_vrf_request_id
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/abi/v0.6/Flags.json flags_wrapper
 
+// TODO: Switch this to 0.7/Operator.json
+//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/abi/v0.6/Oracle.json operator_wrapper
+
 //go:generate go run ./generation/generate_link/wrap_link.go
 
 // To run these commands, you must either install docker, or the correct version
