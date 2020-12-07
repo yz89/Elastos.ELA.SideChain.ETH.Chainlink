@@ -999,7 +999,8 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	keysDir := store.Config.KeysDir()
 	// Clear out the fixture
 	require.NoError(t, os.RemoveAll(keysDir))
-	require.NoError(t, store.DeleteKey(cltest.DefaultKeyAddress))
+	err := store.ORM.DB.Delete(models.Key{}).Error
+	require.NoError(t, err)
 	// Fixture key is deleted
 	dbkeys, err := store.SendKeys()
 	require.NoError(t, err)
