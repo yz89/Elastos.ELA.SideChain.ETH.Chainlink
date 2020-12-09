@@ -672,7 +672,7 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
       uint128 _paymentAmount
     )
   {
-     require(msg.sender == address(0));
+    //require(msg.sender == address(0));
 
     if (_queriedRoundId > 0) {
       Round storage round = rounds[_queriedRoundId];
