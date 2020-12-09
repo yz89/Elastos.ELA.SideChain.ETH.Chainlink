@@ -32,36 +32,35 @@ func TestJobsController_Create_ValidationFailure(t *testing.T) {
 		name        string
 		pid         models.PeerID
 		kb          models.Sha256Hash
-		ta          models.EIP55Address
 		expectedErr error
 	}{
 		{
 			name:        "invalid keybundle",
 			pid:         models.PeerID(cltest.DefaultP2PPeerID),
 			kb:          models.Sha256Hash(cltest.Random32Byte()),
-			ta:          cltest.DefaultKeyAddressEIP55,
 			expectedErr: job.ErrNoSuchKeyBundle,
 		},
 		{
 			name:        "invalid peerID",
 			pid:         models.PeerID(cltest.NonExistentP2PPeerID),
 			kb:          cltest.DefaultOCRKeyBundleIDSha256,
-			ta:          cltest.DefaultKeyAddressEIP55,
 			expectedErr: job.ErrNoSuchPeerID,
 		},
 		{
 			name:        "invalid transmitter address",
 			pid:         models.PeerID(cltest.DefaultP2PPeerID),
 			kb:          cltest.DefaultOCRKeyBundleIDSha256,
-			ta:          cltest.NewEIP55Address(),
 			expectedErr: job.ErrNoSuchTransmitterAddress,
 		},
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			_, client, cleanup := setupJobsControllerTests(t)
+			ta, client, cleanup := setupJobsControllerTests(t)
 			defer cleanup()
-			sp := cltest.MinimalOCRNonBootstrapSpec(contractAddress, tc.ta, tc.pid, monitoringEndpoint, tc.kb)
+
+			key := cltest.MustInsertRandomKey(t, ta.Store.DB)
+
+			sp := cltest.MinimalOCRNonBootstrapSpec(contractAddress, key.Address, tc.pid, monitoringEndpoint, tc.kb)
 			body, _ := json.Marshal(models.CreateJobSpecRequest{
 				TOML: sp,
 			})

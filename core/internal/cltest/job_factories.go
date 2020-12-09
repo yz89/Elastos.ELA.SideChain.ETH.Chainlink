@@ -71,12 +71,12 @@ func MinimalOCRNonBootstrapSpec(contractAddress, transmitterAddress models.EIP55
 	return fmt.Sprintf(minimalOCRNonBootstrapTemplate, contractAddress, peerID, transmitterAddress, monitoringEndpoint, keyBundleID)
 }
 
-func MakeOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
+func MakeOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress models.EIP55Address) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
 
 	peerID := DefaultP2PPeerID
 	ocrKeyID := DefaultOCRKeyBundleID
-	jobSpecText := fmt.Sprintf(ocrJobSpecText, NewAddress().Hex(), peerID.String(), ocrKeyID, DefaultKey)
+	jobSpecText := fmt.Sprintf(ocrJobSpecText, NewAddress().Hex(), peerID.String(), ocrKeyID, transmitterAddress)
 
 	var ocrspec offchainreporting.OracleSpec
 	err := toml.Unmarshal([]byte(jobSpecText), &ocrspec)

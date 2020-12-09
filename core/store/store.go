@@ -64,6 +64,7 @@ func NewInsecureStore(config *orm.Config, ethClient eth.Client, advisoryLocker p
 }
 
 // TODO(sam): Remove ethClient from here completely after legacy tx manager is gone
+// See: https://www.pivotaltracker.com/story/show/175493792
 func newStoreWithKeyStore(
 	config *orm.Config,
 	ethClient eth.Client,

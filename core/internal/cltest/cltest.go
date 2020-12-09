@@ -75,8 +75,6 @@ const (
 	Password = "password"
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
-	// DefaultKey is the address of the fixture key
-	DefaultKey = "0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15"
 	// DefaultKeyFixtureFileName is the filename of the fixture key
 	DefaultKeyFixtureFileName = "testkey-27548a32b9aD5D64c5945EaE9Da5337bc3169D15.json"
 	// AllowUnstarted enable an application that can be used in tests without being started
@@ -87,16 +85,13 @@ const (
 	NonExistentPeerID = "12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9"
 	// DefaultOCRKeyBundleID is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleID = "54f02f2756952ee42874182c8a03d51f048b7fc245c05196af50f9266f8e444a"
-	// DefaultKeyJSON is the JSON for the default key encrypted with fast scrypt and password 'password'
+	// DefaultKeyJSON is the JSON for the default key encrypted with fast scrypt and password 'password' (used for fixture file)
 	DefaultKeyJSON = `{"id": "1ccf542e-8f4d-48a0-ad1d-b4e6a86d4c6d", "crypto": {"kdf": "scrypt", "mac": "7f31bd05768a184278c4e9f077bcfba7b2003fed585b99301374a1a4a9adff25", "cipher": "aes-128-ctr", "kdfparams": {"n": 2, "p": 1, "r": 8, "salt": "99e83bf0fdeba39bd29c343db9c52d9e0eae536fdaee472d3181eac1968aa1f9", "dklen": 32}, "ciphertext": "ac22fa788b53a5f62abda03cd432c7aee1f70053b97633e78f93709c383b2a46", "cipherparams": {"iv": "6699ba30f953728787e51a754d6f9566"}}, "address": "27548a32b9ad5d64c5945eae9da5337bc3169d15", "version": 3}`
 )
 
 var (
-	// DefaultKeyAddress is the address of the fixture key
-	DefaultKeyAddress      = common.HexToAddress(DefaultKey)
-	DefaultKeyAddressEIP55 models.EIP55Address
-	DefaultP2PPeerID       p2ppeer.ID
-	NonExistentP2PPeerID   p2ppeer.ID
+	DefaultP2PPeerID     p2ppeer.ID
+	NonExistentP2PPeerID p2ppeer.ID
 	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
 )
@@ -147,11 +142,6 @@ func init() {
 		panic(err)
 	}
 	DefaultOCRKeyBundleIDSha256, err = models.Sha256HashFromHex(DefaultOCRKeyBundleID)
-	if err != nil {
-		panic(err)
-	}
-
-	DefaultKeyAddressEIP55, err = models.NewEIP55Address(DefaultKey)
 	if err != nil {
 		panic(err)
 	}
@@ -264,6 +254,7 @@ type TestApplication struct {
 	Started          bool
 	EthMock          *EthMock
 	Backend          *backends.SimulatedBackend
+	Key              models.Key
 	allowUnstarted   bool
 }
 
@@ -344,6 +335,16 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps .
 	t.Helper()
 
 	app, cleanup := NewApplicationWithConfig(t, tc, flagsAndDeps...)
+	for _, dep := range flagsAndDeps {
+		switch v := dep.(type) {
+		case models.Key:
+			MustAddKeyToKeystore(t, &v, app.Store)
+			app.Key = v
+		}
+	}
+	if app.Key.Address.Address() == utils.ZeroAddress {
+		app.Key, _ = MustAddRandomKeyToKeystore(t, app.Store, 0)
+	}
 	require.NoError(t, app.Store.KeyStore.Unlock(Password))
 
 	return app, cleanup
@@ -371,7 +372,9 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	ta.ChainlinkApplication = app
 	ta.EthMock = MockEthOnStore(t, app.Store, flagsAndDeps...)
 	server := newServer(ta)
+
 	tc.Config.Set("CLIENT_NODE_URL", server.URL)
+
 	app.Store.Config = tc.Config
 
 	for _, flag := range flagsAndDeps {
@@ -384,8 +387,8 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	ta.Server = server
 	ta.wsServer = tc.wsServer
 	return ta, func() {
-		require.NoError(t, ta.Stop())
-		require.True(t, ta.EthMock.AllCalled(), ta.EthMock.Remaining())
+		assert.NoError(t, ta.Stop())
+		assert.True(t, ta.EthMock.AllCalled(), ta.EthMock.Remaining())
 	}
 }
 
@@ -1431,19 +1434,6 @@ func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface
 		irv = append(irv, log.Interface())
 	}
 	return irv
-}
-
-func MustDefaultKey(t *testing.T, s *strpkg.Store) models.Key {
-	k, err := s.KeyByAddress(common.HexToAddress(DefaultKey))
-	require.NoError(t, err)
-	return k
-}
-
-func RandomizeNonce(t *testing.T, s *strpkg.Store) {
-	t.Helper()
-	n := rand.Intn(32767) + 100
-	err := s.DB.Exec(`UPDATE keys SET next_nonce = ?`, n).Error
-	require.NoError(t, err)
 }
 
 func MakeConfigDigest(t *testing.T) ocrtypes.ConfigDigest {

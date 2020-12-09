@@ -1,10 +1,10 @@
 package store
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -118,3 +118,27 @@ func (ks *KeyStore) GetAccountByAddress(address common.Address) (accounts.Accoun
 	}
 	return accounts.Account{}, errors.New("no account found with that address")
 }
+
+// ImportKeysFromDB imports each key from the database
+// func (ks *KeyStore) ImportKeysFromDB(db *sql.DB) (err error) {
+//     rows, err := db.QueryContext(context.Background(), `SELECT json FROM keys`)
+//     if err != nil {
+//         return errors.Wrap(err, "could not load keys from DB")
+//     }
+//     defer func() {
+//         err = multierr.Combine(err, rows.Close())
+//     }()
+//     for rows.Next() {
+//         var json []byte
+//         if err = rows.Scan(&json); err != nil {
+//             err = errors.Wrap(err, "error scanning row")
+//             return
+//         }
+//         _, err = ks.Import(json, "TODO: passphrase here", "TODO: passphrase here")
+//         if err != nil {
+//             err = errors.Wrapf(err, "error importing key json: %s", json)
+//             return
+//         }
+//     }
+//     return
+// }
