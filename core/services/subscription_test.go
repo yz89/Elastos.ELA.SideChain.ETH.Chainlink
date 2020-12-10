@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"github.com/ethereum/go-ethereum/core/types"
 	"math/big"
 	"sync/atomic"
 	"testing"
@@ -27,13 +28,13 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(t, store)
+	ethClient := new(mocks.Client); defer ethClient.AssertExpectations(t); store.EthClient = ethClient;
 
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
 	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
-	eth.Register("eth_getLogs", []models.Log{log})
-	eth.RegisterSubscription("logs")
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{log}, nil)
 
 	var count int32
 	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
@@ -42,9 +43,6 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	sub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, fromBlock.NextInt(), store.Config, callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
-
-	eth.EventuallyAllCalled(t)
-
 	gomega.NewGomegaWithT(t).Eventually(func() int32 {
 		return atomic.LoadInt32(&count)
 	}).Should(gomega.Equal(int32(1)))
@@ -55,11 +53,11 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(t, store)
+	ethClient := new(mocks.Client); defer ethClient.AssertExpectations(t); store.EthClient = ethClient;
 
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
-	eth.RegisterSubscription("logs")
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
 
 	var count int32
 	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
@@ -68,7 +66,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
-	eth.EventuallyAllCalled(t)
+
 	assert.Equal(t, int32(0), atomic.LoadInt32(&count))
 }
 
@@ -77,15 +75,22 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(t, store)
+	subMock := new(mocks.Subscription)
+	subMock.On("Unsubscribe").Return()
+	subMock.On("Err").Return(nil)
+
+	ethClient := new(mocks.Client); defer ethClient.AssertExpectations(t); store.EthClient = ethClient;
 
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
 
 	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
-	eth.Register("eth_getLogs", []models.Log{log}) // backfill
 	logsChan := make(chan models.Log)
-	eth.RegisterSubscription("logs", logsChan)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
+		Return(subMock, nil).
+		Run(func(mock.Arguments) { <-logsChan })
+	//ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(logsChan, nil) // backfill
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{log}, nil)
 
 	var count int32
 	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
@@ -101,7 +106,7 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	log2 := cltest.LogFromFixture(t, "testdata/requestLog0original.json")
 	logsChan <- log2
 
-	eth.EventuallyAllCalled(t)
+
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(func() int32 { return atomic.LoadInt32(&count) }).Should(gomega.Equal(int32(2)))
 }
@@ -183,10 +188,10 @@ func TestServices_StartJobSubscription(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			eth := cltest.MockEthOnStore(t, store)
-			eth.Register("eth_getLogs", []models.Log{})
+			ethClient := new(mocks.Client); defer ethClient.AssertExpectations(t); store.EthClient = ethClient;
 			logChan := make(chan models.Log, 1)
-			eth.RegisterSubscription("logs", logChan)
+			ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(logChan, nil) // backfill
+			ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
 
 			job := cltest.NewJob()
 			initr := models.Initiator{Type: test.initType}
@@ -223,7 +228,7 @@ func TestServices_StartJobSubscription(t *testing.T) {
 			})
 
 			runManager.AssertExpectations(t)
-			eth.EventuallyAllCalled(t)
+
 		})
 	}
 }
@@ -248,10 +253,10 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			eth := cltest.MockEthOnStore(t, store)
-			eth.Register("eth_getLogs", []models.Log{})
+			ethClient := new(mocks.Client); defer ethClient.AssertExpectations(t); store.EthClient = ethClient;
 			logChan := make(chan models.Log, 1)
-			eth.RegisterSubscription("logs", logChan)
+			ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(logChan, nil) // backfill
+			ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
 
 			job := cltest.NewJob()
 			initr := models.Initiator{Type: "runlog"}
@@ -278,7 +283,7 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 				},
 			}
 
-			eth.EventuallyAllCalled(t)
+
 		})
 	}
 }
@@ -307,6 +312,7 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 			defer cleanup()
 
 			ethClient := new(mocks.Client)
+			defer ethClient.AssertExpectations(t)
 			store.EthClient = ethClient
 
 			currentHead := cltest.Head(test.currentHead)
@@ -340,8 +346,6 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 			require.NoError(t, err)
 
 			<-executeJobChannel
-
-			ethClient.AssertExpectations(t)
 			runManager.AssertExpectations(t)
 		})
 	}

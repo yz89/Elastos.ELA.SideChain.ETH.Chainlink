@@ -1695,9 +1695,8 @@ func TestFluxMonitor_PollingDeviationChecker_IsFlagLowered(t *testing.T) {
 			defer storeCleanup()
 
 			gethClient := new(mocks.GethClient)
-			cltest.MockEthOnStore(t, store,
-				eth.NewClientWith(nil, gethClient),
-			)
+			defer gethClient.AssertExpectations(t)
+			store.EthClient = eth.NewClientWith(nil, gethClient)
 
 			fluxAggregator := new(mocks.FluxAggregator)
 			rm := new(mocks.RunManager)
