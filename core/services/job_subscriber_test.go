@@ -2,10 +2,11 @@ package services_test
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"math/big"
 	"sync"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
