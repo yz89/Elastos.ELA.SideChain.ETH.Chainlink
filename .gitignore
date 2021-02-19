@@ -1,3 +1,6 @@
+# editor
+.idea
+
 # dependencies
 node_modules/
 tmp/
@@ -36,3 +39,5 @@ dockercfg
 env
 credentials.env
 gcr_creds.env
+
+artifacts
