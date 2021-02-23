@@ -19,13 +19,10 @@ contract ChainlinkClient {
   uint256 constant private AMOUNT_OVERRIDE = 0;
   address constant private SENDER_OVERRIDE = 0x0;
   uint256 constant private ARGS_VERSION = 1;
-  bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
-  address constant private LINK_TOKEN_POINTER = 0x6AA67437397c05d20F1f5D567ffF09366E291Aa2;
 
   ENSInterface private ens;
   bytes32 private ensNode;
-  LinkTokenInterface private link;
   ChainlinkRequestInterface private oracle;
   uint256 private requests = 1;
   mapping(bytes32 => address) private pendingRequests;
@@ -82,7 +79,7 @@ contract ChainlinkClient {
     _req.nonce = requests;
     pendingRequests[requestId] = _oracle;
     emit ChainlinkRequested(requestId);
-    require(link.transferAndCall(_oracle, _payment, encodeRequest(_req)), "unable to transferAndCall to oracle");
+    require(true == _oracle.call.value(_payment).gas(1000000)(abi.encodeWithSignature("payOracleRequest(address,uint256,bytes)",this,_payment,encodeRequest(_req))),"unable to call payOracleRequest");
     requests += 1;
 
     return requestId;
@@ -121,34 +118,6 @@ contract ChainlinkClient {
   }
 
   /**
-   * @notice Sets the LINK token address
-   * @param _link The address of the LINK token contract
-   */
-  function setChainlinkToken(address _link) internal {
-    link = LinkTokenInterface(_link);
-  }
-
-  /**
-   * @notice Sets the Chainlink token address for the public
-   * network as given by the Pointer contract
-   */
-  function setPublicChainlinkToken() internal {
-    setChainlinkToken(PointerInterface(LINK_TOKEN_POINTER).getAddress());
-  }
-
-  /**
-   * @notice Retrieves the stored address of the LINK token
-   * @return The address of the LINK token
-   */
-  function chainlinkTokenAddress()
-    internal
-    view
-    returns (address)
-  {
-    return address(link);
-  }
-
-  /**
    * @notice Retrieves the stored address of the oracle contract
    * @return The address of the oracle contract
    */
@@ -171,23 +140,6 @@ contract ChainlinkClient {
     notPendingRequest(_requestId)
   {
     pendingRequests[_requestId] = _oracle;
-  }
-
-  /**
-   * @notice Sets the stored oracle and LINK token contracts with the addresses resolved by ENS
-   * @dev Accounts for subnodes having different resolvers
-   * @param _ens The address of the ENS contract
-   * @param _node The ENS node hash
-   */
-  function useChainlinkWithENS(address _ens, bytes32 _node)
-    internal
-  {
-    ens = ENSInterface(_ens);
-    ensNode = _node;
-    bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ENS_TOKEN_SUBNAME));
-    ENSResolver_Chainlink resolver = ENSResolver_Chainlink(ens.resolver(linkSubnode));
-    setChainlinkToken(resolver.addr(linkSubnode));
-    updateChainlinkOracleWithENS();
   }
 
   /**

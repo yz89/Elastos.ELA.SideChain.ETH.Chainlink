@@ -4,7 +4,7 @@ import "./vendor/Ownable.sol";
 import "./vendor/SafeMathChainlink.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/OracleInterface.sol";
-import "./interfaces/LinkTokenInterface.sol";
+import "./vendor/StandardToken.sol";
 
 /**
  * @title The Chainlink Oracle contract
@@ -22,7 +22,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   uint256 constant private EXPECTED_REQUEST_WORDS = 2;
   uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
 
-  LinkTokenInterface internal LinkToken;
+  StandardToken internal LinkToken;
   mapping(bytes32 => bytes32) private commitments;
   mapping(address => bool) private authorizedNodes;
   uint256 private withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
@@ -45,28 +45,27 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
 
   /**
    * @notice Deploy with the address of the LINK token
-   * @dev Sets the LinkToken address for the imported LinkTokenInterface
+   * @dev Sets the LinkToken address for the imported StandardToken
    * @param _link The address of the LINK token
    */
   constructor(address _link) public Ownable() {
-    LinkToken = LinkTokenInterface(_link); // external but already deployed and unalterable
+    LinkToken = StandardToken(_link); // external but already deployed and unalterable
   }
 
   /**
-   * @notice Called when LINK is sent to the contract via `transferAndCall`
    * @dev The data payload's first 2 words will be overwritten by the `_sender` and `_amount`
    * values to ensure correctness. Calls oracleRequest.
    * @param _sender Address of the sender
    * @param _amount Amount of LINK sent (specified in wei)
    * @param _data Payload of the transaction
    */
-  function onTokenTransfer(
+  function payOracleRequest(
     address _sender,
     uint256 _amount,
     bytes _data
   )
+    payable
     public
-    onlyLINK
     validRequestLength(_data)
     permittedFunctionsForLINK(_data)
   {
