@@ -2,10 +2,11 @@ pragma solidity ^0.4.24;
 
 import "./Chainlink.sol";
 import "./interfaces/ENSInterface.sol";
-import "./interfaces/LinkTokenInterface.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/PointerInterface.sol";
+import "./interfaces/OracleInterface.sol";
 import { ENSResolver as ENSResolver_Chainlink } from "./vendor/ENSResolver.sol";
+import "./vendor/StandardToken.sol";
 
 /**
  * @title The ChainlinkClient contract
@@ -19,20 +20,23 @@ contract ChainlinkClient {
   uint256 constant private AMOUNT_OVERRIDE = 0;
   address constant private SENDER_OVERRIDE = 0x0;
   uint256 constant private ARGS_VERSION = 1;
-  bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
-  address constant private LINK_TOKEN_POINTER = 0xC89bD4E1632D3A43CB03AAAd5262cbe4038Bc571;
+  address constant private LINK_TOKEN_POINTER = 0x26F04Ef76b2A4D89559a49d135338df13F12d6Fd;
 
   ENSInterface private ens;
   bytes32 private ensNode;
-  LinkTokenInterface private link;
+  StandardToken private link;
   ChainlinkRequestInterface private oracle;
   uint256 private requests = 1;
   mapping(bytes32 => address) private pendingRequests;
 
+  address public senderAddress;
+  address public linkAddress;
+
   event ChainlinkRequested(bytes32 indexed id);
   event ChainlinkFulfilled(bytes32 indexed id);
   event ChainlinkCancelled(bytes32 indexed id);
+  event Transfer(address indexed from, address indexed to, uint value, bytes data);
 
   /**
    * @notice Creates a request that can hold additional parameters
@@ -82,10 +86,23 @@ contract ChainlinkClient {
     _req.nonce = requests;
     pendingRequests[requestId] = _oracle;
     emit ChainlinkRequested(requestId);
-    require(link.transferAndCall(_oracle, _payment, encodeRequest(_req)), "unable to transferAndCall to oracle");
+//    require(link.transferAndCall(_oracle, _payment, encodeRequest(_req)), "unable to transferAndCall to oracle");
+    senderAddress = msg.sender;
+    require(link.transfer(_oracle, _payment), "unable to transferAndCall to oracle");
+    _data = encodeRequest(_req);
+    Transfer(msg.sender, _to, _value, _data);
+    onTokenTransfer(_oracle, _payment, _data);
+
     requests += 1;
 
     return requestId;
+  }
+
+  function onTokenTransfer(address _to, uint _value, bytes _data)
+  private
+  {
+    OracleInterface receiver = OracleInterface(_to);
+    receiver.onTokenTransfer(msg.sender, _value, _data);
   }
 
   /**
@@ -125,7 +142,8 @@ contract ChainlinkClient {
    * @param _link The address of the LINK token contract
    */
   function setChainlinkToken(address _link) internal {
-    link = LinkTokenInterface(_link);
+    link = StandardToken(_link);
+    linkAddress = _link;
   }
 
   /**
@@ -171,23 +189,6 @@ contract ChainlinkClient {
     notPendingRequest(_requestId)
   {
     pendingRequests[_requestId] = _oracle;
-  }
-
-  /**
-   * @notice Sets the stored oracle and LINK token contracts with the addresses resolved by ENS
-   * @dev Accounts for subnodes having different resolvers
-   * @param _ens The address of the ENS contract
-   * @param _node The ENS node hash
-   */
-  function useChainlinkWithENS(address _ens, bytes32 _node)
-    internal
-  {
-    ens = ENSInterface(_ens);
-    ensNode = _node;
-    bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ENS_TOKEN_SUBNAME));
-    ENSResolver_Chainlink resolver = ENSResolver_Chainlink(ens.resolver(linkSubnode));
-    setChainlinkToken(resolver.addr(linkSubnode));
-    updateChainlinkOracleWithENS();
   }
 
   /**
