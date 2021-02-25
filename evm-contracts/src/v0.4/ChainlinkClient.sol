@@ -88,17 +88,15 @@ contract ChainlinkClient {
     emit ChainlinkRequested(requestId);
 //    require(link.transferAndCall(_oracle, _payment, encodeRequest(_req)), "unable to transferAndCall to oracle");
     senderAddress = msg.sender;
-    require(link.transfer(_oracle, _payment), "unable to transferAndCall to oracle");
-    _data = encodeRequest(_req);
-    Transfer(msg.sender, _to, _value, _data);
-    onTokenTransfer(_oracle, _payment, _data);
-
+    require(link.transfer(_oracle, _payment), "unable to transfer to oracle");
+//    require(true == _oracle.call.gas(1000)(abi.encodeWithSignature("onTokenTransfer(address, uint256, bytes)",this, _payment, encodeRequest(_req))),"unable to call onTokenTransfer");
+    onTokenTransfer(_oracle, _payment, encodeRequest(_req));
     requests += 1;
 
     return requestId;
   }
 
-  function onTokenTransfer(address _to, uint _value, bytes _data)
+  function onTokenTransfer(address _to, uint256 _value, bytes _data)
   private
   {
     OracleInterface receiver = OracleInterface(_to);

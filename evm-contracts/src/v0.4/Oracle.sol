@@ -66,7 +66,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     bytes _data
   )
     public
-    onlyLINK
+//    onlyLINK
     validRequestLength(_data)
     permittedFunctionsForLINK(_data)
   {
@@ -75,7 +75,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
       mstore(add(_data, 68), _amount) // ensure correct amount is passed
     }
     // solhint-disable-next-line avoid-low-level-calls
-    require(address(this).delegatecall(_data), "Unable to create request"); // calls oracleRequest
+    require(address(this).call(_data), "Unable to create request"); // calls oracleRequest
   }
 
   /**
@@ -102,7 +102,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     bytes _data
   )
     external
-    onlyLINK
+//    onlyLINK
     checkCallbackAddress(_callbackAddress)
   {
     bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
