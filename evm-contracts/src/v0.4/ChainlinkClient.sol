@@ -30,9 +30,6 @@ contract ChainlinkClient {
   uint256 private requests = 1;
   mapping(bytes32 => address) private pendingRequests;
 
-  address public senderAddress;
-  address public linkAddress;
-
   event ChainlinkRequested(bytes32 indexed id);
   event ChainlinkFulfilled(bytes32 indexed id);
   event ChainlinkCancelled(bytes32 indexed id);
@@ -86,10 +83,7 @@ contract ChainlinkClient {
     _req.nonce = requests;
     pendingRequests[requestId] = _oracle;
     emit ChainlinkRequested(requestId);
-//    require(link.transferAndCall(_oracle, _payment, encodeRequest(_req)), "unable to transferAndCall to oracle");
-    senderAddress = msg.sender;
     require(link.transfer(_oracle, _payment), "unable to transfer to oracle");
-//    require(true == _oracle.call.gas(1000)(abi.encodeWithSignature("onTokenTransfer(address, uint256, bytes)",this, _payment, encodeRequest(_req))),"unable to call onTokenTransfer");
     onTokenTransfer(_oracle, _payment, encodeRequest(_req));
     requests += 1;
 
@@ -100,7 +94,7 @@ contract ChainlinkClient {
   private
   {
     OracleInterface receiver = OracleInterface(_to);
-    receiver.onTokenTransfer(msg.sender, _value, _data);
+    receiver.onTokenTransfer(this, _value, _data);
   }
 
   /**
@@ -141,7 +135,6 @@ contract ChainlinkClient {
    */
   function setChainlinkToken(address _link) internal {
     link = StandardToken(_link);
-    linkAddress = _link;
   }
 
   /**
