@@ -21,7 +21,7 @@ contract ChainlinkClient {
   address constant private SENDER_OVERRIDE = 0x0;
   uint256 constant private ARGS_VERSION = 1;
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
-  address constant private LINK_TOKEN_POINTER = 0x26F04Ef76b2A4D89559a49d135338df13F12d6Fd;
+  address constant private LINK_TOKEN_POINTER = 0xa971ad916Cd9229aFE4e732dF5003b8187677D25;
 
   ENSInterface private ens;
   bytes32 private ensNode;
